@@ -1,47 +1,58 @@
-var express = require('express'),
-    io = require('socket.io');
+let path = require("path")
+let express = require('express')
+let app = express()
+let http = require('http').Server(app)
 
-var app = express();
+// 将http交给socket监听处理
+let io = require('socket.io')(http)
 
-app.use(express.static(__dirname));
+const PORT = 3000
 
-var server = app.listen(8888);
+// 设置静态文件可访问
+app.use(express.static(path.join(__dirname,'public') ))
 
-
-var ws = io.listen(server);
-
-ws.on('connection', function(client){
-    console.log('\033[96msomeone is connect\033[39m \n');
-    client.on('join', function(msg){
-        // 检查是否有重复
-        if(checkNickname(msg)){
-            client.emit('nickname', '昵称有重复!');
-        }else{
-            client.nickname = msg;
-            ws.sockets.emit('announcement', '系统', msg + ' 加入了聊天室!');
-        }
-    });
-    // 监听发送消息
-    client.on('send.message', function(msg){
-        client.broadcast.emit('send.message',client.nickname,  msg);
-    });
-    // 断开连接时，通知其它用户
-    client.on('disconnect', function(){
-        if(client.nickname){
-            client.broadcast.emit('send.message','系统',  client.nickname + '离开聊天室!');
-        }
-    })
-
+app.get('/', (req,res) => {
+    // res.end('hello world')
+    res.sendFile(path.join(__dirname, 'index.html'))
 })
 
-// 检查昵称是否重复
-var checkNickname = function(name){
-    for(var k in ws.sockets.sockets){
-        if(ws.sockets.sockets.hasOwnProperty(k)){
-            if(ws.sockets.sockets[k] && ws.sockets.sockets[k].nickname == name){
-                return true;
-            }
+http.listen(PORT, () => {
+    console.log("服务器开始监听端口：" + PORT )
+})
+
+
+// 验证用户名是否重复
+let checkname = (nickname) => {
+    for(let k in io.sockets.sockets) { // 之前登录过的 nickname
+        // console.log(io.sockets.sockets[k].nickname)
+        if( nickname == io.sockets.sockets[k].nickname ) {
+            return false
         }
     }
-    return false;
+    return true
 }
+// io通信
+io.on('connection', (socket) => { // socket 客服端
+    console.log(socket.id)
+    // 监听加入群聊事件 
+    socket.on('join', (nickname) => {
+        console.log(nickname)
+        if( checkname(nickname) ) { // 用户名是否重复
+            socket.nickname = nickname // 存储用户名
+            // 服务端发送给所有人，包括自己
+            io.emit('notice', '系统', socket.nickname + '加入群聊' ) // => 客服端 通知所有人有人加入了。
+        }else{
+            socket.emit("repeat")
+        }
+    })
+    // 客服端接受一个人的信息，然后转发信息给所有人，除了自己
+    socket.on('sendMsg', (msg) => {
+        socket.broadcast.emit('getMsg',socket.nickname, msg)
+    })
+
+    socket.on('disconnect', () => {
+        // console.log("有人下线了...")
+        socket.broadcast.emit('getMsg','系统', socket.nickname + '离开了群聊')
+    })
+})
+

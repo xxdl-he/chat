@@ -4,13 +4,13 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start":"set DEBUG=express:* && supervisor node server.js"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "keywords": [],
   "author": "",
   "license": "ISC",
-  "dependencies": {
-    "express": "^4.16.2",
-    "socket.io": "^2.0.4"
+  "devDependencies": {
+    "express": "^4.16.3",
+    "socket.io": "^2.1.1"
   }
 }
